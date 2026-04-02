@@ -1,0 +1,38 @@
+# Configuration du serveur GameOcean
+# Ce plugin est concu pour etre utilise exclusivement avec GeyserMC (Bedrock).
+
+# Type d'instance: LOBBY, MINIGAME
+server-type: LOBBY
+
+# Identifiant unique de ce serveur sur le reseau proxy (ex: app-1, lobby-1)
+server-id: lobby-1
+
+# Si le type est MINIGAME, precisez lequel (ex: BEDWARS, SKYWARS, etc.)
+minigame-type: NONE
+
+# Configuration de la base de donnees MySQL
+database:
+  enabled: true
+  host: "localhost"
+  port: 3306
+  database: "gameocean"
+  username: "root"
+  password: "password"
+  useSSL: false
+
+# Configuration de Redis (Communications inter-serveurs)
+redis:
+  enabled: true
+  host: "127.0.0.1"
+  port: 6379
+  password: ""
+
+# Nom du serveur lobby BungeeCord (utilise pour renvoyer les joueurs expulses des appartements)
+lobby-server: "lobby"
+
+# Configuration des conditions d'utilisation (LOBBY uniquement)
+terms:
+  title: "Conditions d'utilisation"
+  content: "Bienvenue sur GameOcean! En jouant sur ce serveur, vous acceptez nos regles et conditions d'utilisation."
+  button-accept: "J'accepte"
+  button-decline: "Je refuse"

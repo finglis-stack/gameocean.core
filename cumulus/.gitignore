@@ -1,0 +1,19 @@
+# Ignore everything by default
+*
+!.gitignore
+!LICENSE
+!license_header.txt
+!README.md
+!.github
+!.github/**
+
+# Don't ignore specific gradle files and folders
+!gradle
+!gradle/**
+!*.gradle.kts
+!gradle.properties
+!gradlew*
+
+# Don't ignore the src folder and its contents
+!src
+!src/**
