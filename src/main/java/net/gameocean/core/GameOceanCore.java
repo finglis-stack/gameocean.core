@@ -38,7 +38,6 @@ public class GameOceanCore extends JavaPlugin {
     private net.gameocean.core.managers.MenuManager menuManager;
     private net.gameocean.core.managers.FriendManager friendManager;
     private net.gameocean.core.managers.WorldManager worldManager;
-    private net.gameocean.core.minigames.bedwars.BedwarsManager bedwarsManager;
     private net.gameocean.core.minigames.apartment.ApartmentManager apartmentManager;
     private net.gameocean.core.utils.BungeeServerCheck bungeeServerCheck;
     private net.gameocean.core.utils.BungeeMessaging bungeeMessaging;
@@ -121,9 +120,7 @@ public class GameOceanCore extends JavaPlugin {
         log.info(" FriendManager global initialise.");
         
         if ("MINIGAME".equalsIgnoreCase(serverType)) {
-            if ("BEDWARSSOLO".equalsIgnoreCase(minigameType)) {
-                bedwarsManager = new net.gameocean.core.minigames.bedwars.BedwarsManager(this);
-            } else if ("APARTMENT".equalsIgnoreCase(minigameType)) {
+            if ("APARTMENT".equalsIgnoreCase(minigameType)) {
                 apartmentManager = new net.gameocean.core.minigames.apartment.ApartmentManager(this);
                 getServer().getPluginManager().registerEvents(new net.gameocean.core.minigames.apartment.ApartmentListener(this, apartmentManager), this);
                 org.bukkit.command.PluginCommand appCmd = getCommand("app");
@@ -277,10 +274,6 @@ public class GameOceanCore extends JavaPlugin {
 
     public net.gameocean.core.utils.BungeeMessaging getBungeeMessaging() {
         return bungeeMessaging;
-    }
-
-    public net.gameocean.core.minigames.bedwars.BedwarsManager getBedwarsManager() {
-        return bedwarsManager;
     }
 
     public net.gameocean.core.minigames.apartment.ApartmentManager getApartmentManager() {

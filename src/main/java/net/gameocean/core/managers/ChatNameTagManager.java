@@ -83,22 +83,6 @@ public class ChatNameTagManager implements Listener {
         String coloredPrefix = ChatColor.translateAlternateColorCodes('&', prefix);
         String rankColorCode = extractFirstColor(prefix);
         
-        // Surcharge Bedwars
-        if ("MINIGAME".equalsIgnoreCase(plugin.getServerType()) && "BEDWARSSOLO".equalsIgnoreCase(plugin.getMinigameType())) {
-            if (plugin.getBedwarsManager() != null && plugin.getBedwarsManager().getArenaManager() != null) {
-                net.gameocean.core.minigames.bedwars.data.Arena arena = plugin.getBedwarsManager().getArenaManager().getPlayerArena(target);
-                if (arena != null && (arena.getState() == net.gameocean.core.minigames.bedwars.data.ArenaState.IN_GAME || arena.getState() == net.gameocean.core.minigames.bedwars.data.ArenaState.ENDING)) {
-                    net.gameocean.core.minigames.bedwars.data.BedwarsPlayerData data = arena.getPlayerData(target.getUniqueId());
-                    if (data != null && data.getTeamColor() != null) {
-                        net.gameocean.core.minigames.bedwars.data.BedwarsTeam bwTeam = arena.getTeam(data.getTeamColor());
-                        if (bwTeam != null && bwTeam.getColorCode() != null && bwTeam.getColorCode().length() >= 2) {
-                            rankColorCode = bwTeam.getColorCode().substring(0, 2);
-                        }
-                    }
-                }
-            }
-        }
-        
         // Ordre de tri dans le tab (optionnel, mais utile)
         String weight = "99";
         String group = "";

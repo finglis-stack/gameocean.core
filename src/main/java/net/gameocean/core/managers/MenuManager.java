@@ -70,7 +70,6 @@ public class MenuManager {
         SimpleForm form = SimpleForm.builder()
                 .title("§8» §eSélecteur de Mini-Jeux §8«")
                 .content("") // Laisser vide pour forcer l'affichage en grille (comme The Hive)
-                .button("§l§cBedWars Solo\n§r§eJouer maintenant", FormImage.Type.URL, "https://i.imgur.com/wOLEWsb.png")
                 .button("§l§eSkyWars\n§r§8Bientôt disponible", FormImage.Type.URL, "https://i.imgur.com/yU4l2sX.png")
                 .button("§l§aMurder Mystery\n§r§8Bientôt disponible", FormImage.Type.URL, "https://i.imgur.com/yU4l2sX.png")
                 .button("§l§6Duels\n§r§8Bientôt disponible", FormImage.Type.URL, "https://i.imgur.com/yU4l2sX.png")
@@ -78,15 +77,11 @@ public class MenuManager {
                     int clicked = response.clickedButtonId();
                     Bukkit.getScheduler().runTask(plugin, () -> {
                         if (clicked == 0) {
-                            player.sendMessage(ChatColor.GREEN + "Connexion au BedWars...");
-                            // Implémentation future du transfert vers le serveur Bedwars
-                            if (plugin.getBungeeServerCheck() != null) {
-                                // Exemple d'utilisation si l'outil existait
-                            }
-                        } else if (clicked == 1) {
                             player.sendMessage(ChatColor.RED + "Le SkyWars est actuellement en développement.");
-                        } else if (clicked == 2) {
+                        } else if (clicked == 1) {
                             player.sendMessage(ChatColor.RED + "Le Murder Mystery est actuellement en développement.");
+                        } else if (clicked == 2) {
+                            player.sendMessage(ChatColor.RED + "Les Duels sont actuellement en développement.");
                         }
                     });
                 })

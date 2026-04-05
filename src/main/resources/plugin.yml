@@ -26,11 +26,6 @@ commands:
   invite:
     description: Invite un joueur dans son appartement
     usage: /invite <joueur>
-  bw:
-    description: Commandes d'administration Bedwars
-    usage: /bw <build|create|setwaiting|setbounds|team|setspawn|setbed|addnpc|addgen|save|info|list|join|leave|start|stop>
-    permission: gameocean.bedwars.admin
-    permission-message: §cVous n'avez pas la permission d'utiliser cette commande.
   world:
     description: Gestion des mondes
     usage: /world <list|load|unload|create|delete|tp|info|autoload>
