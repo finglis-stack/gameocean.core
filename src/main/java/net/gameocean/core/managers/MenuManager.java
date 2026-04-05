@@ -26,39 +26,49 @@ public class MenuManager {
         }
 
         String rank = getPlayerRank(player);
-        int level = 1;
-        if (plugin.getProfileManager() != null) {
-            net.gameocean.core.database.PlayerProfile profile = plugin.getProfileManager().getProfile(player.getUniqueId());
-            if (profile != null) {
-                level = profile.getLevel();
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            int level = 1;
+            if (plugin.getProfileManager() != null) {
+                net.gameocean.core.database.PlayerProfile profile = plugin.getProfileManager().getProfile(player.getUniqueId());
+                if (profile != null) {
+                    level = profile.getLevel();
+                }
             }
-        }
-        String profileText = ChatColor.translateAlternateColorCodes('&', 
-            "&l&bVotre Profil&r\n\n" +
-            "&7Pseudo: &f" + player.getName() + "\n" +
-            "&7Grade: &f" + rank + "\n" +
-            "&7Niveau: &d" + level + "\n\n" +
-            "&eQue souhaitez-vous faire aujourd'hui ?"
-        );
 
-        SimpleForm form = SimpleForm.builder()
-                .title(ChatColor.translateAlternateColorCodes('&', "&fMenu Principal"))
-                .content(profileText)
-                .button("Trouver un mode de jeu", FormImage.Type.URL, "https://i.imgur.com/qxcIxOq.png")
-                .validResultHandler(response -> {
-                    if (response.clickedButtonId() == 0) {
-                        // Ouvrir le selecteur de mini-jeux
-                        Bukkit.getScheduler().runTask(plugin, () -> openGameSelector(player));
-                    }
-                })
-                .build();
+            if (!player.isOnline()) return;
 
-        FloodgateApi.getInstance().sendForm(player.getUniqueId(), form);
+            final int finalLevel = level;
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline()) return;
+
+                String profileText = ChatColor.translateAlternateColorCodes('&', 
+                    "&l&bVotre Profil&r\n\n" +
+                    "&7Pseudo: &f" + player.getName() + "\n" +
+                    "&7Grade: &f" + rank + "\n" +
+                    "&7Niveau: &d" + finalLevel + "\n\n" +
+                    "&eQue souhaitez-vous faire aujourd'hui ?"
+                );
+
+                SimpleForm form = SimpleForm.builder()
+                        .title(ChatColor.translateAlternateColorCodes('&', "&fMenu Principal"))
+                        .content(profileText)
+                        .button("Trouver un mode de jeu", FormImage.Type.URL, "https://i.imgur.com/qxcIxOq.png")
+                        .validResultHandler(response -> {
+                            if (response.clickedButtonId() == 0) {
+                                Bukkit.getScheduler().runTask(plugin, () -> openGameSelector(player));
+                            }
+                        })
+                        .build();
+
+                FloodgateApi.getInstance().sendForm(player.getUniqueId(), form);
+            });
+        });
     }
 
     public void openGameSelector(Player player) {
         SimpleForm form = SimpleForm.builder()
-                .title("§l§8» §bSélecteur de Mini-Jeux §8«")
+                .title("§8» §eSélecteur de Mini-Jeux §8«")
                 .content("") // Laisser vide pour forcer l'affichage en grille (comme The Hive)
                 .button("§l§cBedWars Solo\n§r§eJouer maintenant", FormImage.Type.URL, "https://i.imgur.com/wOLEWsb.png")
                 .button("§l§eSkyWars\n§r§8Bientôt disponible", FormImage.Type.URL, "https://i.imgur.com/yU4l2sX.png")
@@ -116,15 +126,31 @@ public class MenuManager {
                 return;
             }
 
-            java.util.List<String> validUuids = new java.util.ArrayList<>();
-            java.util.List<String> validNames = new java.util.ArrayList<>();
+            java.util.List<String> finalUuids = new java.util.ArrayList<>();
+            java.util.List<String> finalNames = new java.util.ArrayList<>();
+
+            // Récupérer les amis d'abord
+            if (plugin.getFriendManager() != null) {
+                try {
+                    java.util.Map<java.util.UUID, String> friends = plugin.getFriendManager().getFriends(player.getUniqueId()).get();
+                    for (java.util.Map.Entry<java.util.UUID, String> entry : friends.entrySet()) {
+                        finalUuids.add(entry.getKey().toString());
+                        finalNames.add(entry.getValue());
+                    }
+                } catch (Exception e) {}
+            }
+            int friendsCount = finalNames.size();
 
             String sql = "SELECT uuid, username FROM profiles WHERE apartment_is_public = TRUE OR apartment_offline_access = TRUE LIMIT 20";
-            try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql);
+            try (java.sql.Connection conn = plugin.getDatabaseManager().getConnection();
+                 java.sql.PreparedStatement stmt = conn.prepareStatement(sql);
                  java.sql.ResultSet rs = stmt.executeQuery()) {
                  while (rs.next()) {
-                     validUuids.add(rs.getString("uuid"));
-                     validNames.add(rs.getString("username"));
+                     String u = rs.getString("uuid");
+                     if (!finalUuids.contains(u) && !u.equals(player.getUniqueId().toString())) {
+                         finalUuids.add(u);
+                         finalNames.add(rs.getString("username"));
+                     }
                  }
             } catch (Exception e) {
                 plugin.getLogger().warning("Erreur lors de la recupération des apparts sociaux : " + e.getMessage());
@@ -133,69 +159,224 @@ public class MenuManager {
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 SimpleForm.Builder formBuilder = SimpleForm.builder()
-                        .title("§l§8» §bAmis & Social §8«")
-                        .content("§7Appartements ouverts ou disponibles hors ligne:\n");
+                        .title("§8» §eAmis & Social §8«")
+                        .content("§7Gérez vos amis et visitez des appartements ouverts:\n");
                 
-                if (validNames.isEmpty()) {
-                    formBuilder.content("§cAucun appartement public ou ami disponible pour le moment.");
+                if (finalNames.isEmpty()) {
+                    formBuilder.content("§cAucun ami ou appartement public pour le moment.");
                     formBuilder.button("§cRetour", FormImage.Type.URL, "https://i.imgur.com/qxcIxOq.png");
                 } else {
-                    for (String name : validNames) {
-                        formBuilder.button("Appartement de §b" + name + "\n§r§8Cliquer pour visiter");
+                    for (int i = 0; i < finalNames.size(); i++) {
+                        if (i < friendsCount) {
+                            formBuilder.button("§a[Ami] §b" + finalNames.get(i) + "\n§r§8Cliquer pour visiter");
+                        } else {
+                            formBuilder.button("Appartement de §b" + finalNames.get(i) + "\n§r§8Cliquer pour visiter");
+                        }
                     }
                 }
 
                 SimpleForm form = formBuilder.validResultHandler(response -> {
                     int clicked = response.clickedButtonId();
-                    if (validNames.isEmpty()) return; // Clic sur retour
+                    if (finalNames.isEmpty() || clicked >= finalNames.size()) return; // Clic sur retour
                     
-                    String targetUuid = validUuids.get(clicked);
-                    String targetName = validNames.get(clicked);
-                    
-                    player.sendMessage("§aRecherche de l'instance de " + targetName + "...");
-                    
-                    Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-                        String bestServer = "app-1"; // Fallback server name
-                        
-                        if (plugin.getRedisManager() != null && plugin.getRedisManager().isConnected()) {
-                            // 1. Chercher si l'instance est déjà allumée
-                            String currentInstance = plugin.getRedisManager().getSync("apartment_instance:" + targetUuid);
-                            
-                            if (currentInstance != null && !currentInstance.isEmpty()) {
-                                bestServer = currentInstance;
-                            } else {
-                                // 2. Trouver le serveur app-* avec le moins de joueurs
-                                try (redis.clients.jedis.Jedis jedis = plugin.getRedisManager().getJedisPool().getResource()) {
-                                    java.util.Map<String, String> servers = jedis.hgetAll("app_servers");
-                                    int minPlayers = Integer.MAX_VALUE;
-                                    for (java.util.Map.Entry<String, String> entry : servers.entrySet()) {
-                                        try {
-                                            int players = Integer.parseInt(entry.getValue());
-                                            if (players < minPlayers) {
-                                                minPlayers = players;
-                                                bestServer = entry.getKey();
-                                            }
-                                        } catch (NumberFormatException ignored) {}
-                                    }
-                                } catch (Exception e) {
-                                  // ignore
-                                }
-                            }
-                            // Mémoriser la visite en définissant le nom de l'hôte
-                            plugin.getRedisManager().set("apartment_visit:" + player.getUniqueId().toString(), targetName, 60);
-                        }
-                        
-                        // Transfert BungeeCord sur le thread principal
-                        final String finalServer = bestServer;
-                        Bukkit.getScheduler().runTask(plugin, () -> {
-                            player.sendMessage("§aTéléportation vers " + finalServer + "...");
-                            plugin.getBungeeMessaging().connectPlayerToServer(player, finalServer);
-                        });
-                    });
+                    String targetUuid = finalUuids.get(clicked);
+                    String targetName = finalNames.get(clicked);
+
+                    if (clicked < friendsCount) {
+                        openFriendDetailMenu(player, targetUuid, targetName);
+                    } else {
+                        joinApartment(player, targetUuid, targetName);
+                    }
                 }).build();
 
                 FloodgateApi.getInstance().sendForm(player.getUniqueId(), form);
             });
         });
+    }
+
+    private void joinApartment(Player player, String targetUuid, String targetName) {
+        player.sendMessage("§aRecherche de l'instance de " + targetName + "...");
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            String bestServer = "app-1"; // Fallback server name
+
+            if (plugin.getRedisManager() != null && plugin.getRedisManager().isConnected()) {
+                // 1. Chercher si l'instance est déjà allumée
+                String currentInstance = plugin.getRedisManager().getSync("apartment_instance:" + targetUuid);
+
+                if (currentInstance != null && !currentInstance.isEmpty()) {
+                    bestServer = currentInstance;
+                } else {
+                    // 2. Trouver le serveur app-* avec le moins de joueurs
+                    try (redis.clients.jedis.Jedis jedis = plugin.getRedisManager().getJedisPool().getResource()) {
+                        java.util.Map<String, String> servers = jedis.hgetAll("app_servers");
+                        int minPlayers = Integer.MAX_VALUE;
+                        for (java.util.Map.Entry<String, String> entry : servers.entrySet()) {
+                            try {
+                                int players = Integer.parseInt(entry.getValue());
+                                if (players < minPlayers) {
+                                    minPlayers = players;
+                                    bestServer = entry.getKey();
+                                }
+                            } catch (NumberFormatException ignored) {}
+                        }
+                    } catch (Exception e) {}
+                }
+                // Mémoriser la visite en définissant le nom de l'hôte
+                plugin.getRedisManager().set("apartment_visit:" + player.getUniqueId().toString(), targetName, 60);
+            }
+
+            // Transfert BungeeCord sur le thread principal
+            final String finalServer = bestServer;
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                player.sendMessage("§aTéléportation vers " + finalServer + "...");
+                plugin.getBungeeMessaging().connectPlayerToServer(player, finalServer);
+            });
+        });
+    }
+
+    public void openFriendDetailMenu(Player player, String targetUuid, String targetName) {
+        if (!isBedrockPlayer(player)) return;
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            // Vérifier le statut en ligne via Redis
+            String serverId = null;
+            if (plugin.getRedisManager() != null && plugin.getRedisManager().isConnected()) {
+                serverId = plugin.getRedisManager().getSync("gameocean:online:" + targetUuid);
+            }
+
+            boolean isOnline = (serverId != null);
+            String displayServer = isOnline ? serverId : "Hors-ligne";
+
+            // Récupérer UNIQUEMENT les données d'appartement via SQL léger
+            boolean hasPublicApt = false;
+            boolean hasOfflineApt = false;
+            if (plugin.getDatabaseManager() != null && plugin.getDatabaseManager().isConnected()) {
+                String sql = "SELECT apartment_is_public, apartment_offline_access FROM profiles WHERE uuid = ?";
+                try (java.sql.Connection conn = plugin.getDatabaseManager().getConnection();
+                     java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    stmt.setString(1, targetUuid);
+                    try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                        if (rs.next()) {
+                            hasPublicApt = rs.getBoolean("apartment_is_public");
+                            hasOfflineApt = rs.getBoolean("apartment_offline_access");
+                        }
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Erreur SQL openFriendDetailMenu: " + e.getMessage());
+                }
+            }
+
+            final boolean finalHasAptAccess = (isOnline && hasPublicApt) || (!isOnline && hasOfflineApt) || hasPublicApt;
+            final String statusText = (isOnline ? "§aEn ligne" : "§cHors ligne");
+            final String aptText = (hasPublicApt ? "§aPublic" : (hasOfflineApt ? "§eVisible (Hors-Ligne)" : "§cPrivé"));
+
+            // Vérifier que le joueur est toujours en ligne avant d'envoyer le form
+            if (!player.isOnline()) return;
+
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline()) return;
+
+                SimpleForm.Builder formBuilder = SimpleForm.builder()
+                        .title("§8» §e" + targetName + " §8«")
+                        .content("§7Statut: " + statusText + "\n" +
+                                 "§7Serveur: §e" + displayServer + "\n" +
+                                 "§7Appartement: " + aptText + "\n\n" +
+                                 "§7Que souhaitez-vous faire ?");
+
+                if (finalHasAptAccess) {
+                    formBuilder.button("§aRejoindre son appartement");
+                }
+
+                formBuilder.button("§cRetirer cet ami");
+                formBuilder.button("§8Retour");
+
+                SimpleForm form = formBuilder.validResultHandler(response -> {
+                    int clicked = response.clickedButtonId();
+                    int actionIndex = clicked;
+
+                    if (!finalHasAptAccess) {
+                        actionIndex += 1;
+                    }
+
+                    if (actionIndex == 0) {
+                        joinApartment(player, targetUuid, targetName);
+                    } else if (actionIndex == 1) {
+                        player.performCommand("friend remove " + targetName);
+                        Bukkit.getScheduler().runTaskLater(plugin, () -> openSocialMenu(player), 10L);
+                    } else {
+                        openSocialMenu(player);
+                    }
+                }).build();
+
+                FloodgateApi.getInstance().sendForm(player.getUniqueId(), form);
+            });
+        });
+    }
+
+    public void openSettingsMenu(Player player) {
+        if (!isBedrockPlayer(player)) {
+            player.sendMessage(ChatColor.RED + "Ce menu est optimisé pour les joueurs Bedrock pour l'instant.");
+            return;
+        }
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            boolean hasAnnounce = true;
+            boolean hasPopup = true;
+            if (plugin.getProfileManager() != null) {
+                net.gameocean.core.database.PlayerProfile profile = plugin.getProfileManager().getProfile(player.getUniqueId());
+                if (profile != null) {
+                    hasAnnounce = profile.hasFriendAnnouncements();
+                    hasPopup = profile.hasFriendPopupRequests();
+                }
+            }
+
+            final boolean finalAnnounce = hasAnnounce;
+            final boolean finalPopup = hasPopup;
+
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                org.geysermc.cumulus.form.CustomForm form = org.geysermc.cumulus.form.CustomForm.builder()
+                        .title("§8» §eParamètres §8«")
+                        .toggle("Annonces de connexion des amis", finalAnnounce)
+                        .toggle("Recevoir les invitations en popup", finalPopup)
+                        .validResultHandler(response -> {
+                            boolean newAnnounce = response.asToggle(0);
+                            boolean newPopup = response.asToggle(1);
+
+                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                                if (newAnnounce != finalAnnounce) {
+                                    plugin.getProfileManager().updateFriendAnnouncements(player.getUniqueId(), newAnnounce);
+                                }
+                                if (newPopup != finalPopup) {
+                                    plugin.getProfileManager().updateFriendPopupRequests(player.getUniqueId(), newPopup);
+                                }
+                                player.sendMessage(ChatColor.GREEN + "Paramètres mis à jour avec succès !");
+                            });
+                        })
+                        .build();
+
+                FloodgateApi.getInstance().sendForm(player.getUniqueId(), form);
+            });
+        });
+    }
+
+    public void openFriendRequestPopup(Player player, String senderName) {
+        if (!isBedrockPlayer(player)) return;
+
+        org.geysermc.cumulus.form.ModalForm form = org.geysermc.cumulus.form.ModalForm.builder()
+                .title("§8» §eNouvel Ami ! §8«")
+                .content("§e" + senderName + " §avoudrait être votre ami.\n\nSouhaitez-vous accepter ?")
+                .button1("§aAccepter")
+                .button2("§cRefuser")
+                .validResultHandler(response -> {
+                    if (response.clickedFirst()) {
+                        player.performCommand("friend accept " + senderName);
+                    } else {
+                        player.performCommand("friend deny " + senderName);
+                    }
+                })
+                .build();
+
+        FloodgateApi.getInstance().sendForm(player.getUniqueId(), form);
     }
 }

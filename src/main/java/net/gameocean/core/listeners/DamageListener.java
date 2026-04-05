@@ -28,6 +28,7 @@ public class DamageListener implements Listener {
 
     private final GameOceanCore plugin;
     private final Map<UUID, Integer> voidTeleportTasks = new HashMap<>();
+    private final Map<UUID, Long> menuCooldowns = new HashMap<>();
 
     public DamageListener(GameOceanCore plugin) {
         this.plugin = plugin;
@@ -124,6 +125,15 @@ public class DamageListener implements Listener {
         if (event.getItem() != null && event.getAction().name().contains("RIGHT_CLICK")) {
             // Empecher toute interaction/consommation
             event.setCancelled(true);
+
+            // Ignorer l'off-hand pour eviter le double-fire
+            if (event.getHand() != null && event.getHand() != org.bukkit.inventory.EquipmentSlot.HAND) return;
+
+            // Cooldown anti-spam (500ms)
+            UUID uid = event.getPlayer().getUniqueId();
+            long now = System.currentTimeMillis();
+            if (menuCooldowns.containsKey(uid) && (now - menuCooldowns.get(uid)) < 500) return;
+            menuCooldowns.put(uid, now);
             
             // Ouvrir les menus
             if (event.getItem().getType() == Material.COMPASS) {
@@ -133,6 +143,10 @@ public class DamageListener implements Listener {
             } else if (event.getItem().getType() == Material.TOTEM_OF_UNDYING) {
                 if (plugin.getMenuManager() != null) {
                     plugin.getMenuManager().openSocialMenu(event.getPlayer());
+                }
+            } else if (event.getItem().getType() == Material.MAGMA_CREAM) {
+                if (plugin.getMenuManager() != null) {
+                    plugin.getMenuManager().openSettingsMenu(event.getPlayer());
                 }
             }
         }

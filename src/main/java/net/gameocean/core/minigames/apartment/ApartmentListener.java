@@ -55,7 +55,7 @@ public class ApartmentListener implements Listener {
             String templateId = "default";
             if (plugin.getProfileManager() != null) {
                 net.gameocean.core.database.PlayerProfile profile =
-                        plugin.getProfileManager().getProfile(player.getUniqueId());
+                        plugin.getProfileManager().getOrCreateProfile(player);
                 if (profile != null && profile.getCurrentApartment() != null) {
                     templateId = profile.getCurrentApartment();
                 }
@@ -147,9 +147,13 @@ public class ApartmentListener implements Listener {
             return;
         }
         
-        // Gérer la récupération d'un meuble physique
-        if (event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK && event.getClickedBlock() != null) {
-            apartmentManager.tryRemoveFurnitureBlock(event.getPlayer(), event.getClickedBlock());
+        // Gérer les interactions avec les FakeBlocks (rafraichir le rendu, ou les récupérer via clic gauche)
+        if (event.getAction().name().contains("LEFT_CLICK") || event.getAction().name().contains("RIGHT_CLICK")) {
+            boolean isLeft = event.getAction().name().contains("LEFT_CLICK");
+            if (apartmentManager.handleFurnitureInteraction(event.getPlayer(), isLeft)) {
+                event.setCancelled(true);
+                return;
+            }
         }
         
         event.setCancelled(true);

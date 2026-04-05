@@ -13,10 +13,12 @@ public class PlayerProfile {
     private boolean apartmentIntroSeen;
     private boolean apartmentIsPublic;
     private boolean apartmentOfflineAccess;
+    private boolean friendAnnouncements;
+    private boolean friendPopupRequests;
     private Timestamp lastLogin;
     private final Timestamp createdAt;
 
-    public PlayerProfile(UUID uuid, String username, boolean termsAccepted, int level, String currentApartment, boolean apartmentIntroSeen, boolean apartmentIsPublic, boolean apartmentOfflineAccess, Timestamp lastLogin, Timestamp createdAt) {
+    public PlayerProfile(UUID uuid, String username, boolean termsAccepted, int level, String currentApartment, boolean apartmentIntroSeen, boolean apartmentIsPublic, boolean apartmentOfflineAccess, boolean friendAnnouncements, boolean friendPopupRequests, Timestamp lastLogin, Timestamp createdAt) {
         this.uuid = uuid;
         this.username = username;
         this.termsAccepted = termsAccepted;
@@ -25,6 +27,8 @@ public class PlayerProfile {
         this.apartmentIntroSeen = apartmentIntroSeen;
         this.apartmentIsPublic = apartmentIsPublic;
         this.apartmentOfflineAccess = apartmentOfflineAccess;
+        this.friendAnnouncements = friendAnnouncements;
+        this.friendPopupRequests = friendPopupRequests;
         this.lastLogin = lastLogin;
         this.createdAt = createdAt;
     }
@@ -89,6 +93,22 @@ public class PlayerProfile {
         this.apartmentOfflineAccess = apartmentOfflineAccess;
     }
 
+    public boolean hasFriendAnnouncements() {
+        return friendAnnouncements;
+    }
+
+    public void setFriendAnnouncements(boolean friendAnnouncements) {
+        this.friendAnnouncements = friendAnnouncements;
+    }
+
+    public boolean hasFriendPopupRequests() {
+        return friendPopupRequests;
+    }
+
+    public void setFriendPopupRequests(boolean friendPopupRequests) {
+        this.friendPopupRequests = friendPopupRequests;
+    }
+
     public Timestamp getLastLogin() {
         return lastLogin;
     }
@@ -112,6 +132,8 @@ public class PlayerProfile {
                 ", apartmentIntroSeen=" + apartmentIntroSeen +
                 ", apartmentIsPublic=" + apartmentIsPublic +
                 ", apartmentOfflineAccess=" + apartmentOfflineAccess +
+                ", friendAnnouncements=" + friendAnnouncements +
+                ", friendPopupRequests=" + friendPopupRequests +
                 ", lastLogin=" + lastLogin +
                 ", createdAt=" + createdAt +
                 '}';

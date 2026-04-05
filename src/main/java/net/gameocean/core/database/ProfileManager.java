@@ -67,6 +67,12 @@ public class ProfileManager {
                     boolean offlineAccess = false;
                     try { offlineAccess = rs.getInt("apartment_offline_access") == 1 || rs.getBoolean("apartment_offline_access"); } catch (SQLException ignored) {}
 
+                    boolean friendAnnouncements = true;
+                    try { friendAnnouncements = rs.getInt("friend_announcements") == 1 || rs.getBoolean("friend_announcements"); } catch (SQLException ignored) {}
+
+                    boolean friendPopupRequests = true;
+                    try { friendPopupRequests = rs.getInt("friend_popup_requests") == 1 || rs.getBoolean("friend_popup_requests"); } catch (SQLException ignored) {}
+
                     return new PlayerProfile(
                             UUID.fromString(rs.getString("uuid")),
                             rs.getString("username"),
@@ -76,6 +82,8 @@ public class ProfileManager {
                             introSeen,
                             isPublic,
                             offlineAccess,
+                            friendAnnouncements,
+                            friendPopupRequests,
                             rs.getTimestamp("last_login"),
                             rs.getTimestamp("created_at")
                     );
@@ -90,8 +98,8 @@ public class ProfileManager {
     private PlayerProfile createProfile(UUID uuid, String username) {
         if (!databaseManager.isConnected()) return null;
 
-        String sql = "INSERT INTO profiles (uuid, username, terms_accepted, level, current_apartment, apartment_intro_seen, apartment_is_public, apartment_offline_access) " +
-                     "VALUES (?, ?, FALSE, 1, 'default', FALSE, FALSE, FALSE)";
+        String sql = "INSERT INTO profiles (uuid, username, terms_accepted, level, current_apartment, apartment_intro_seen, apartment_is_public, apartment_offline_access, friend_announcements, friend_popup_requests) " +
+                     "VALUES (?, ?, FALSE, 1, 'default', FALSE, FALSE, FALSE, TRUE, TRUE)";
 
         try (Connection conn = databaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -100,7 +108,7 @@ public class ProfileManager {
             stmt.setString(2, username);
             stmt.executeUpdate();
             plugin.getLogger().info("Nouveau profil créé pour: " + username);
-            return new PlayerProfile(uuid, username, false, 1, "default", false, false, false, null, null);
+            return new PlayerProfile(uuid, username, false, 1, "default", false, false, false, true, true, null, null);
 
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Erreur lors de la création du profil: " + e.getMessage(), e);
@@ -216,6 +224,34 @@ public class ProfileManager {
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "Erreur lors de la mise à jour de l'accès hors-ligne", e);
+        }
+        return false;
+    }
+
+    public boolean updateFriendAnnouncements(UUID uuid, boolean enabled) {
+        if (!databaseManager.isConnected()) return false;
+        String sql = "UPDATE profiles SET friend_announcements = ? WHERE uuid = ?";
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setBoolean(1, enabled);
+            stmt.setString(2, uuid.toString());
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.SEVERE, "Erreur de maj friend_announcements", e);
+        }
+        return false;
+    }
+
+    public boolean updateFriendPopupRequests(UUID uuid, boolean enabled) {
+        if (!databaseManager.isConnected()) return false;
+        String sql = "UPDATE profiles SET friend_popup_requests = ? WHERE uuid = ?";
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setBoolean(1, enabled);
+            stmt.setString(2, uuid.toString());
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.SEVERE, "Erreur de maj friend_popup_requests", e);
         }
         return false;
     }

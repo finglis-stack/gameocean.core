@@ -53,11 +53,15 @@ public class ApartmentManager {
         public final int dbId;
         public final String furnitureId;
         public final UUID ownerUuid;
+        public final String materialName;
+        public final float yaw;
 
-        public FurnitureInfo(int dbId, String furnitureId, UUID ownerUuid) {
+        public FurnitureInfo(int dbId, String furnitureId, UUID ownerUuid, String materialName, float yaw) {
             this.dbId = dbId;
             this.furnitureId = furnitureId;
             this.ownerUuid = ownerUuid;
+            this.materialName = materialName;
+            this.yaw = yaw;
         }
     }
 
@@ -450,12 +454,12 @@ public class ApartmentManager {
                                 headBed.setPart(Bed.Part.HEAD);
                                 player.sendBlockChange(headLoc, headBed);
                                 
-                                furnitureBlocks.put(getBlockKey(headLoc, ownerUuid), new FurnitureInfo(dbId, furnitureId, ownerUuid));
+                                furnitureBlocks.put(getBlockKey(headLoc, ownerUuid), new FurnitureInfo(dbId, furnitureId, ownerUuid, materialName, yaw));
                             } else {
                                 player.sendBlockChange(loc, blockData);
                             }
 
-                            furnitureBlocks.put(getBlockKey(loc, ownerUuid), new FurnitureInfo(dbId, furnitureId, ownerUuid));
+                            furnitureBlocks.put(getBlockKey(loc, ownerUuid), new FurnitureInfo(dbId, furnitureId, ownerUuid, materialName, yaw));
                         });
                     } catch (IllegalArgumentException e) {
                         plugin.getLogger().warning("Materiau inconnu dans la BDD : " + materialName);
@@ -960,36 +964,66 @@ public class ApartmentManager {
     }
 
     /**
-     * Traite la tentative de récupération d'un meuble quand le joueur tape sur le bloc
+     * Traite les interactions avec les meubles (qui sont des FakeBlocks).
+     * @return true si une interacion avec un fake block a été gérée, false sinon.
      */
-    public void tryRemoveFurnitureBlock(Player player, Block block) {
-        Location loc = block.getLocation();
-        
+    public boolean handleFurnitureInteraction(Player player, boolean isLeftClick) {
         org.bukkit.NamespacedKey hostKey = new org.bukkit.NamespacedKey(plugin, "apartment_host");
         String hostStr = player.getPersistentDataContainer().get(hostKey, org.bukkit.persistence.PersistentDataType.STRING);
-        if (hostStr == null) return;
+        if (hostStr == null) return false;
         UUID hostUuid = java.util.UUID.fromString(hostStr);
-        String blockKey = getBlockKey(loc, hostUuid);
-        
-        FurnitureInfo info = furnitureBlocks.get(blockKey);
-        if (info == null) return;
-        
-        if (!info.ownerUuid.equals(player.getUniqueId())) {
-            return; // Pas à lui
+
+        // Raytrace manuel au travers de l'air pour trouver un FakeBlock
+        Location eye = player.getEyeLocation();
+        org.bukkit.util.Vector dir = eye.getDirection().normalize().multiply(0.2); // Pas de 0.2 blocs
+        Location current = eye.clone();
+
+        FurnitureInfo hitFurniture = null;
+        Location hitLocation = null;
+
+        for (int i = 0; i < 25; i++) { // Max 5 blocs de distance (25 * 0.2)
+            current.add(dir);
+            String blockKey = getBlockKey(current.getBlock().getLocation(), hostUuid);
+            if (furnitureBlocks.containsKey(blockKey)) {
+                hitFurniture = furnitureBlocks.get(blockKey);
+                hitLocation = current.getBlock().getLocation();
+                break;
+            }
         }
 
-        Map<Location, Long> playerPending = pendingBlockRemoval.computeIfAbsent(player.getUniqueId(), k -> new HashMap<>());
-        Long lastHit = playerPending.get(loc);
-        
-        long now = System.currentTimeMillis();
-        if (lastHit == null || (now - lastHit) > 3000) { // Si > 3 sec ou premier coup
-            playerPending.put(loc, now);
-            player.sendActionBar("§eTapez encore une fois pour récupérer: §f" + formatFurnitureName(info.furnitureId));
-        } else {
-            // Confirmé ! On enlève
-            playerPending.remove(loc);
-            removeFurnitureBlock(player, info, block);
+        if (hitFurniture != null && hitLocation != null) {
+            // Forcer le rafraîchissement visuel du bloc car le client Bedrock (ou Java) l'a sûrement fait disparaître (prédiction de minage)
+            org.bukkit.Material mat = org.bukkit.Material.matchMaterial(hitFurniture.materialName);
+            if (mat != null) {
+                org.bukkit.block.data.BlockData data = mat.createBlockData();
+                if (data instanceof org.bukkit.block.data.Directional) {
+                    ((org.bukkit.block.data.Directional) data).setFacing(yawToFace(hitFurniture.yaw));
+                }
+                player.sendBlockChange(hitLocation, data);
+            }
+
+            // Si c'est un clic gauche, on gère la récupération
+            if (isLeftClick) {
+                if (!hitFurniture.ownerUuid.equals(player.getUniqueId())) {
+                    return true; // Pas à lui, mais on a réparé le visuel
+                }
+
+                Map<Location, Long> playerPending = pendingBlockRemoval.computeIfAbsent(player.getUniqueId(), k -> new HashMap<>());
+                Long lastHit = playerPending.get(hitLocation);
+                
+                long now = System.currentTimeMillis();
+                if (lastHit == null || (now - lastHit) > 3000) { // Si > 3 sec ou premier coup
+                    playerPending.put(hitLocation, now);
+                    player.sendActionBar("§eTapez encore une fois pour récupérer: §f" + formatFurnitureName(hitFurniture.furnitureId));
+                } else {
+                    // Confirmé ! On supprime le meuble
+                    playerPending.remove(hitLocation);
+                    removeFurnitureBlock(player, hitFurniture, hitLocation.getBlock());
+                }
+            }
+            return true;
         }
+        return false;
     }
 
     private void removeFurnitureBlock(Player player, FurnitureInfo info, Block block) {

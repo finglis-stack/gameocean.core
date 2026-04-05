@@ -39,3 +39,7 @@ commands:
   app:
     description: Gestion du mode APARTMENT
     usage: /app admin <setdefault|tp|createtemplate> [nom]
+  friend:
+    description: Gestion des amis
+    usage: /friend <add|accept|deny|remove|list> [joueur]
+    aliases: [f, amis]

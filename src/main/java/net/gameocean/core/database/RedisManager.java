@@ -144,13 +144,73 @@ public class RedisManager {
                             }
                         });
                     }
+                } else if ("gameocean:friend_request".equals(channel)) {
+                    String[] parts = message.split(":");
+                    if (parts.length == 2) {
+                        String senderName = parts[0];
+                        String receiverName = parts[1];
+                        
+                        Player target = Bukkit.getPlayerExact(receiverName);
+                        if (target != null && target.isOnline()) {
+                            // Envoyer le message immédiatement sur le main thread
+                            Bukkit.getScheduler().runTask(plugin, () -> {
+                                target.sendMessage("§a[Amis] §e" + senderName + " §avoudrait être votre ami !");
+                                target.sendMessage("§7Faites §e/friend accept " + senderName + " §7pour accepter la demande.");
+                            });
+                            
+                            // Vérifier le profil en async (pas sur le thread subscriber !)
+                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                                net.gameocean.core.database.PlayerProfile profile = plugin.getProfileManager().getProfile(target.getUniqueId());
+                                boolean canPopup = profile != null && profile.hasFriendPopupRequests();
+                                if (canPopup && ("LOBBY".equalsIgnoreCase(plugin.getServerType()) || "APARTMENT".equalsIgnoreCase(plugin.getMinigameType()))) {
+                                    Bukkit.getScheduler().runTask(plugin, () -> {
+                                        if (target.isOnline() && plugin.getMenuManager() != null) {
+                                            plugin.getMenuManager().openFriendRequestPopup(target, senderName);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    }
+                } else if ("gameocean:friend_accept".equals(channel)) {
+                    String[] parts = message.split(":");
+                    if (parts.length == 2) {
+                        String receiverName = parts[0];
+                        String senderName = parts[1];
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            Player target = Bukkit.getPlayerExact(senderName);
+                            if (target != null && target.isOnline()) {
+                                target.sendMessage("§a[Amis] §e" + receiverName + " §aa accepté votre demande d'ami !");
+                            }
+                        });
+                    }
+                } else if ("gameocean:friend_joined_direct".equals(channel)) {
+                    String[] parts = message.split(":");
+                    if (parts.length == 2) {
+                        String friendName = parts[0];
+                        String senderName = parts[1];
+                        Player target = Bukkit.getPlayerExact(friendName);
+                        if (target != null && target.isOnline()) {
+                            // Vérifier le profil en async, pas sur le thread subscriber !
+                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                                net.gameocean.core.database.PlayerProfile profile = plugin.getProfileManager().getProfile(target.getUniqueId());
+                                if (profile != null && profile.hasFriendAnnouncements()) {
+                                    Bukkit.getScheduler().runTask(plugin, () -> {
+                                        if (target.isOnline()) {
+                                            target.sendMessage("§e[Amis] §b" + senderName + " §avient de se connecter au réseau !");
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    }
                 }
             }
         };
 
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try (Jedis jedis = jedisPool.getResource()) {
-                jedis.subscribe(pubSub, "gameocean:apartment_invite");
+                jedis.subscribe(pubSub, "gameocean:apartment_invite", "gameocean:friend_request", "gameocean:friend_accept", "gameocean:friend_joined_direct");
             } catch (Exception e) {
                 plugin.getLogger().warning("Le subscriber Redis s'est deconnecte: " + e.getMessage());
             }

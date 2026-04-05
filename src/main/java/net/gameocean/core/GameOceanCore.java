@@ -36,6 +36,7 @@ public class GameOceanCore extends JavaPlugin {
     private net.gameocean.core.managers.ScoreboardManager scoreboardManager;
     private net.gameocean.core.managers.ChatNameTagManager chatNameTagManager;
     private net.gameocean.core.managers.MenuManager menuManager;
+    private net.gameocean.core.managers.FriendManager friendManager;
     private net.gameocean.core.managers.WorldManager worldManager;
     private net.gameocean.core.minigames.bedwars.BedwarsManager bedwarsManager;
     private net.gameocean.core.minigames.apartment.ApartmentManager apartmentManager;
@@ -96,6 +97,10 @@ public class GameOceanCore extends JavaPlugin {
         worldManager = new net.gameocean.core.managers.WorldManager(this);
         log.info(" WorldManager initialise.");
 
+        // Initialiser le MenuManager globalement
+        menuManager = new net.gameocean.core.managers.MenuManager(this);
+        log.info(" MenuManager initialise.");
+
         // Initialiser le SpawnManager (si en mode LOBBY)
         if ("LOBBY".equalsIgnoreCase(serverType)) {
             spawnManager = new SpawnManager(this);
@@ -104,15 +109,16 @@ public class GameOceanCore extends JavaPlugin {
             // Initialiser le ScoreboardManager (uniquement LOBBY)
             scoreboardManager = new ScoreboardManager(this);
             log.info(" ScoreboardManager initialise.");
-
-            menuManager = new net.gameocean.core.managers.MenuManager(this);
-            log.info(" MenuManager initialise.");
         }
         
         // Initialiser ChatNameTagManager (GLOBAL)
         chatNameTagManager = new net.gameocean.core.managers.ChatNameTagManager(this);
         getServer().getPluginManager().registerEvents(chatNameTagManager, this);
         log.info(" ChatNameTagManager global initialise.");
+        
+        // Initialiser FriendManager (GLOBAL pour les comamndes et connexions)
+        friendManager = new net.gameocean.core.managers.FriendManager(this);
+        log.info(" FriendManager global initialise.");
         
         if ("MINIGAME".equalsIgnoreCase(serverType)) {
             if ("BEDWARSSOLO".equalsIgnoreCase(minigameType)) {
@@ -132,6 +138,7 @@ public class GameOceanCore extends JavaPlugin {
         if (getCommand("build") != null) getCommand("build").setExecutor(new net.gameocean.core.commands.BuildCommand(this));
         if (getCommand("accept") != null) getCommand("accept").setExecutor(new net.gameocean.core.commands.AcceptCommand(this));
         if (getCommand("invite") != null) getCommand("invite").setExecutor(new net.gameocean.core.commands.InviteCommand(this));
+        if (getCommand("friend") != null) getCommand("friend").setExecutor(new net.gameocean.core.commands.FriendCommand(this));
         
         // Initialiser Bungee messaging
         bungeeMessaging = new net.gameocean.core.utils.BungeeMessaging(this);
@@ -149,6 +156,18 @@ public class GameOceanCore extends JavaPlugin {
             getCommand("setspawn").setExecutor(new SetSpawnCommand(this));
             getCommand("decline").setExecutor(new DeclineCommand(this));
         }
+
+        // Tâche asynchrone pour maintenir la présence du joueur sur le réseau BungeeCord
+        getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
+            if (redisManager != null && redisManager.isConnected()) {
+                String srvId = getServerId();
+                if (!"unknown-server".equals(srvId)) {
+                    for (org.bukkit.entity.Player p : getServer().getOnlinePlayers()) {
+                        redisManager.set("gameocean:online:" + p.getUniqueId().toString(), srvId, 30);
+                    }
+                }
+            }
+        }, 20L, 200L); // Démarrage après 1s, répétition toutes les 10s
         
         log.info("=========================================");
     }
@@ -246,6 +265,10 @@ public class GameOceanCore extends JavaPlugin {
 
     public net.gameocean.core.managers.MenuManager getMenuManager() {
         return menuManager;
+    }
+
+    public net.gameocean.core.managers.FriendManager getFriendManager() {
+        return friendManager;
     }
     
     public net.gameocean.core.utils.BungeeServerCheck getBungeeServerCheck() {

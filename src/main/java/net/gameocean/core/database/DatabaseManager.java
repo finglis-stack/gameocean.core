@@ -129,6 +129,8 @@ public class DatabaseManager {
                 "apartment_intro_seen BOOLEAN DEFAULT FALSE," +
                 "apartment_is_public BOOLEAN DEFAULT FALSE," +
                 "apartment_offline_access BOOLEAN DEFAULT FALSE," +
+                "friend_announcements BOOLEAN DEFAULT TRUE," +
+                "friend_popup_requests BOOLEAN DEFAULT TRUE," +
                 "last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP," +
                 "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
@@ -165,6 +167,17 @@ public class DatabaseManager {
                 "PRIMARY KEY (apartment_owner, banned_uuid)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 
+        String createFriendsTable =
+                "CREATE TABLE IF NOT EXISTS friends (" +
+                "uuid_1 VARCHAR(36) NOT NULL," +
+                "uuid_2 VARCHAR(36) NOT NULL," +
+                "status ENUM('PENDING', 'ACCEPTED') DEFAULT 'PENDING'," +
+                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                "PRIMARY KEY (uuid_1, uuid_2)," +
+                "INDEX(uuid_1)," +
+                "INDEX(uuid_2)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+
         // Listes des ALTER TABLE pour ajouter les colonnes manquantes si la table existe déjà
         String[] alterQueries = {
             "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS level INT DEFAULT 1",
@@ -172,6 +185,8 @@ public class DatabaseManager {
             "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS apartment_intro_seen BOOLEAN DEFAULT FALSE",
             "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS apartment_is_public BOOLEAN DEFAULT FALSE",
             "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS apartment_offline_access BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS friend_announcements BOOLEAN DEFAULT TRUE",
+            "ALTER TABLE profiles ADD COLUMN IF NOT EXISTS friend_popup_requests BOOLEAN DEFAULT TRUE",
         };
 
         try (Connection conn = dataSource.getConnection();
@@ -181,6 +196,7 @@ public class DatabaseManager {
             stmt.execute(createDecorationsTable);
             stmt.execute(createInventoryTable);
             stmt.execute(createBansTable);
+            stmt.execute(createFriendsTable);
 
             // Migrations gracieuses : ignorer si la colonne existe déjà
             for (String alter : alterQueries) {

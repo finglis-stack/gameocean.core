@@ -72,6 +72,41 @@ public class ConnectionListener implements Listener {
         Player player = event.getPlayer();
         String serverType = plugin.getServerType();
         
+        // --- Récupération dynamique du nom BungeeCord ---
+        if ("unknown-server".equals(plugin.getServerId()) && plugin.getBungeeMessaging() != null) {
+            plugin.getBungeeMessaging().requestServerName(player, serverName -> {
+                if (serverName != null && !serverName.isEmpty()) {
+                    plugin.setServerId(serverName);
+                    // Update immediate une fois l'info recrue
+                    if (plugin.getRedisManager() != null && plugin.getRedisManager().isConnected()) {
+                        plugin.getRedisManager().set("gameocean:online:" + player.getUniqueId().toString(), serverName, 30);
+                    }
+                }
+            });
+        }
+
+        // --- Vérifier la "première connexion absolue au proxy" via Redis ---
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            if (plugin.getRedisManager() != null && plugin.getRedisManager().isConnected()) {
+                String isOnline = plugin.getRedisManager().getSync("gameocean:online:" + player.getUniqueId().toString());
+                if (isOnline == null) {
+                    // C'est une vraie première connexion au réseau BungeeCord
+                    if (plugin.getFriendManager() != null) {
+                        plugin.getFriendManager().getFriends(player.getUniqueId()).thenAccept(friends -> {
+                            for (String friendName : friends.values()) {
+                                plugin.getRedisManager().publish("gameocean:friend_joined_direct", friendName + ":" + player.getName());
+                            }
+                        });
+                    }
+                }
+                // Update immédiatement pour éviter un double trigger s'il change vite de serveur
+                String currentId = plugin.getServerId();
+                if (!"unknown-server".equals(currentId)) {
+                    plugin.getRedisManager().set("gameocean:online:" + player.getUniqueId().toString(), currentId, 30);
+                }
+            }
+        });
+        
         // En mode MINIGAME, les listeners dédiés gèrent la logique
         if ("MINIGAME".equalsIgnoreCase(serverType)) {
             return;
@@ -187,7 +222,7 @@ public class ConnectionListener implements Listener {
             } else {
                 plugin.getLogger().info("[DEBUG] No join message shown for " + player.getName() + " (is member or default group)");
             }
-            
+
             // Appliquer le scoreboard en mode LOBBY
             if (plugin.getScoreboardManager() != null) {
                 plugin.getLogger().info("[DEBUG] Scheduling scoreboard for " + player.getName() + " in 5 ticks");
